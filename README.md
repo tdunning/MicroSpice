@@ -148,7 +148,10 @@ sub-circuit. In the extreme case, all of the nodes can be forced to known
 voltages, although that isn't very interesting.
 
 Note that forcing a node to a particular voltage involves injecting current
-into the circuit at that point.
+into the circuit at that point. By convention in MicroSpice, the currents
+injected into nodes that are forced to a known voltage are unknown.
+Conversely, the voltages for nodes with known injected currents are also
+unknown.
 
 ## Current balance
 
