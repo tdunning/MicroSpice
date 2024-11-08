@@ -46,7 +46,7 @@ struct Netlist
     names::Dict{String,Int}
 end
 
-"""
+raw"""
 Constructs a Netlist from a Spice circuit. As an example, here 
 is a simple RLC circuit with `in` as input and `out` as output
 ```
@@ -70,15 +70,15 @@ and then solved with specified input voltages and currents to find
 the voltages for all nodes in the circuit. Taking the example above, 
 we can find the response for a few frequencies using this 
 code
-```jldoctest
+```jldoctest; filter = r"(\d*)\.(\d{9})\d+" => s"\1.\2***"
 nl = MicroSpice.Netlist("L1 in  out 100n\nR1 out gnd 50\nC1 out gnd 100n\n")
-s = MicroSpice.solve(nl, [:in => 1, :gnd => 0], "out")
+s = MicroSpice.solve(nl, [:in, :gnd], [:out])
 decibel(x) = 20 * log10(abs(x))
-(decibel ∘ s).([1.4e6, 1.5e6, 1.62e6, 1.8e6])
+[decibel(only(s(f, [1, 0]))) for f in [1.4e6, 1.5e6, 1.62e6, 1.8e6]]
 # output
 4-element Vector{Float64}:
- 12.8830778324029
- 18.914298710446435
+ 12.883077832402897
+ 18.914298710446417
  27.65586909592151
  11.05634871505561
 ```
@@ -89,8 +89,8 @@ function Netlist(input)
     nodes = Dict()
     links = Dict{Tuple,Link}()
     for x in readlines(input)
-        kind = lowercase(x[1])
-        if !(kind in "rlc")
+        kind = uppercase(x[1])
+        if !(kind in "RLC")
             continue
         end
         name, from, to, v = split(x)
@@ -99,11 +99,11 @@ function Netlist(input)
         j = nodes[to] = get(nodes, to, length(nodes)+1)
         i, j = sort([i, j])
         
-        if kind == 'c'
+        if kind == 'C'
             z = Cap(value)
-        elseif kind == 'l'
+        elseif kind == 'L'
             z = Ind(value)
-        elseif kind == 'r'
+        elseif kind == 'R'
             z = Res(value)
         else
             continue
@@ -120,28 +120,30 @@ function Netlist(input)
 end
 
 function solve(nl::Netlist, inputs::Vector, outputs::Vector)
-    vIn = [n.names[string(k)] => v for (k,v) in inputs]
-    vOut = [n.names[string(k)] => v for (k,v) in outputs]
-    frequency, inputs -> begin
+    vIn = [nl.names[string(k)] for k in inputs]
+    vOut = [nl.names[string(k)] for k in outputs]
+    (frequency, inputs) -> begin
         c = ComplexCircuit(nl, frequency)
-        return getindex.(solve(c, vIn, []), vOut)
+        result = solve(c, zip(vIn,inputs), [])
+        return getindex.(Ref(result), vOut)
     end
 end
-solve(nl::Netlist, inputs::Vector, output::AbstractString) = only(solve(nl, inputs, [output]))
 
 function decode(kind, x::AbstractString)
-    scale = Dict("k"=>1e3, "M"=>1e6, "meg"=>1e6, "G"=>1e9, 
-                 "m"=>1e-3, "u"=>1e-6, "μ"=>1e-6, "n"=>1e-9, "p"=>1e-12,
-                 nothing=>1.0)
-    m = match(r"(\d+(?:\.\d*)?(?:e\d+)?)((?mega)?|[mkMGμunp])?((?ohm)?|[HFΩ])?", x)
+    scaleFactor = Dict("k"=>1e3, "M"=>1e6, "meg"=>1e6, "G"=>1e9, 
+                       "m"=>1e-3, "u"=>1e-6, "μ"=>1e-6, "n"=>1e-9, "p"=>1e-12,
+                       ""=>1.0, nothing=>1.0)
+    units = Dict("H" => 'L', "F" => 'C', "Ω" => 'R', "ohm" => 'R')
+
+    m = match(r"(\d+(?:\.\d*)?(?:e\d+)?)((?:mega)|[mkMGμunp])?((?:ohm)|[HFΩ])?", x)
     if m === nothing
         return 0
     else
-        if m[3] !== nothing && kind ≠ Dict("H" => 'l', "F" => 'c', "Ω" => 'r')[m[3]]
-            unit = m[3]
+        raw, scale, unit = m
+        if unit !== nothing && unit != "" && kind ≠ units[unit]
             throw(ErrorException("Bad unit ($unit) for component kind $kind"))
         end
-        return parse(Float64, m[1]) * scale[m[2]]
+        return parse(Float64, raw) * scaleFactor[scale]
     end
 end
 

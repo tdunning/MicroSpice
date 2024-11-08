@@ -52,15 +52,15 @@ If we take node `in` as the input, node `out` as the output and `gnd` as
 the ground reference, we can simulate the voltage transfer function for
 this circuit with this code:
 
-```jldoctest
+```jldoctest; filter = r"(\d*)\.(\d{9})\d+" => s"\1.\2***"
 nl = MicroSpice.Netlist("L1 in  out 100nH\nR1 out gnd 50Ω\nC1 out gnd 100nF\n")
 s = MicroSpice.solve(nl, [:in => 1, :gnd => 0], "out")
 decibel(x) = 20 * log10(abs(x))
 (decibel ∘ s).([1.4e6, 1.5e6, 1.62e6, 1.8e6])
 # output
 4-element Vector{Float64}:
- 12.8830778324029
- 18.914298710446435
+ 12.883077832402897
+ 18.914298710446417
  27.65586909592151
  11.05634871505561
 ```
