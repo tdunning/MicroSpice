@@ -174,8 +174,29 @@ There is a single additional current balance that expresses the fact that all in
 ```math
 \sum_a i_a = 0
 ```
+## Simple example
 
-
+Taking the simple RLC circuit given above, the equations of state for
+the circuit at a frequency ``f`` would be
+```math
+\begin{bmatrix}
+-\frac j {2 \pi f L} & \frac j {2 \pi f L}& 0 & -1 & 0 & 0\\
+\frac j {2 \pi f L} & -\frac j {2 \pi f L} -\frac 1 R - 2\pi jf C &\frac 1 R + 2\pi jf C & 0 & -1 & 0\\
+0 & \frac 1 R + 2 \pi jf C & -\frac 1 R - 2\pi jf C & 0 & 0 & -1\\ 
+1 & 0 & 0 & 0 & 0 & 0 \\
+0 & 0 & 1 & 0 & 0 & 0 \\
+0 & 0 & 0 & 1 & 1 & 1 \\
+\end{bmatrix}
+\begin{bmatrix}
+v_{in} \\ v_{out} \\ v_{gnd} \\
+I_{in} \\ I_{out} \\ I_{gnd}
+\end{bmatrix}
+&=
+\begin{bmatrix}
+0 \\ 0 \\ 0 \\ 1 \\ 0 \\ 0 
+\end{bmatrix}
+```
+Where ``R = 50\Omega``, ``C = 100nF``, and ``L = 100nH``. 
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://tdunning.github.io/MicroSpice.jl/stable/)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://tdunning.github.io/MicroSpice.jl/dev/)
