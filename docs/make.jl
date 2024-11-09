@@ -8,7 +8,7 @@ makedocs(;
     authors="Ted Dunning",
     sitename="MicroSpice.jl",
     format=Documenter.HTML(;
-        canonical="https://ted-dunning.github.io/MicroSpice.jl",
+        canonical="https://tdunning.github.io/MicroSpice.jl",
         edit_link="main",
         assets=String[],
     ),
@@ -18,6 +18,6 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/ted-dunning/MicroSpice.jl",
+    repo="github.com/tdunning/MicroSpice.jl",
     devbranch="main",
 )

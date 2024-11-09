@@ -25,7 +25,7 @@ optional, but the unit must match the type of component.
 
 # Running a Simulation
 
-A `Netlist` can describes an abstract circuit. To simulate that circuit,
+A `Netlist` describes an abstract circuit. To simulate that circuit,
 the circuit is turned into a matrix equation consisting of complex
 admittances that relate the voltages and currents in the circuit. In this
 conversion, the voltages for any subset of nodes can be forced and currents
@@ -177,7 +177,7 @@ There is a single additional current balance that expresses the fact that all in
 
 
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://ted-dunning.github.io/MicroSpice.jl/stable/)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://ted-dunning.github.io/MicroSpice.jl/dev/)
-[![Build Status](https://github.com/ted-dunning/MicroSpice.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/ted-dunning/MicroSpice.jl/actions/workflows/CI.yml?query=branch%3Amain)
-[![Coverage](https://codecov.io/gh/ted-dunning/MicroSpice.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/ted-dunning/MicroSpice.jl)
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://tdunning.github.io/MicroSpice.jl/stable/)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://tdunning.github.io/MicroSpice.jl/dev/)
+[![Build Status](https://github.com/tdunning/MicroSpice.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/tdunning/MicroSpice.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Coverage](https://codecov.io/gh/tdunning/MicroSpice.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/tdunning/MicroSpice.jl)
