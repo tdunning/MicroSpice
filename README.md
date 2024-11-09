@@ -184,7 +184,8 @@ the circuit at a frequency ``f`` would be
 \frac j {2 \pi f L} & -\frac j {2 \pi f L} -\frac 1 R - 2\pi jf C &\frac 1 R + 2\pi jf C & 0 & -1 & 0\\
 0 & \frac 1 R + 2 \pi jf C & -\frac 1 R - 2\pi jf C & 0 & 0 & -1\\ 
 1 & 0 & 0 & 0 & 0 & 0 \\
-0 & 0 & 1 & 0 & 0 & 0 \\
+0 & 0 & 1 & 0 & 0 & 0 \\ 
+0 & 0 & 0 & 0 & 1 & 0 \\ 
 0 & 0 & 0 & 1 & 1 & 1 \\
 \end{bmatrix}
 \begin{bmatrix}
@@ -193,7 +194,7 @@ I_{in} \\ I_{out} \\ I_{gnd}
 \end{bmatrix}
 =
 \begin{bmatrix}
-0 \\ 0 \\ 0 \\ 1 \\ 0 \\ 0 
+0 \\ 0 \\ 0 \\ 1 \\ 0 \\ 0 \\ 0
 \end{bmatrix}
 ```
 Where ``R = 50\Omega``, ``C = 100nF``, and ``L = 100nH``. 
