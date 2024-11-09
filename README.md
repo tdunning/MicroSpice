@@ -113,22 +113,22 @@ instead of impedances ``x_{ab}`` into matrix form
 ```math
 \left[
 \begin{array}{ccccc}
- -\sum_{b\ne 1} \sigma_{1b} & \sigma_{12}&\ldots& \sigma_{1n}  \\\ 
-\sigma_{21} &-\sum_{b\ne 2} \sigma_{2b}&  \ldots& \sigma_{2n} \\\
-\vdots & \vdots & \ddots & \vdots \\\
+ -\sum_{b\ne 1} \sigma_{1b} & \sigma_{12}&\ldots& \sigma_{1n}  \\ 
+\sigma_{21} &-\sum_{b\ne 2} \sigma_{2b}&  \ldots& \sigma_{2n} \\
+\vdots & \vdots & \ddots & \vdots \\
 \sigma_{n1} & \sigma_{n2}  & \ldots  & -\sum_{b\ne n} \sigma_{nb}
 \end{array}
 \;\middle|\;
 -I
 \right]
 \begin{bmatrix}
-v_1 \\\
-\vdots \\\
-v_n \\\
-i_1 \\\
-\vdots \\\
+v_1 \\
+\vdots \\
+v_n \\
+i_1 \\
+\vdots \\
 i_n
-\end{bmatrix} &= 0 
+\end{bmatrix} = 0 
 ```
 
 ## Nodes with forced voltages
@@ -180,20 +180,20 @@ Taking the simple RLC circuit given above, the equations of state for
 the circuit at a frequency ``f`` would be
 ```math
 \begin{bmatrix}
--\frac j {2 \pi f L} & \frac j {2 \pi f L}& 0 & -1 & 0 & 0\\\
-\frac j {2 \pi f L} & -\frac j {2 \pi f L} -\frac 1 R - 2\pi jf C &\frac 1 R + 2\pi jf C & 0 & -1 & 0\\\
-0 & \frac 1 R + 2 \pi jf C & -\frac 1 R - 2\pi jf C & 0 & 0 & -1\\\ 
-1 & 0 & 0 & 0 & 0 & 0 \\\
-0 & 0 & 1 & 0 & 0 & 0 \\\
-0 & 0 & 0 & 1 & 1 & 1 \\\
+-\frac j {2 \pi f L} & \frac j {2 \pi f L}& 0 & -1 & 0 & 0\\
+\frac j {2 \pi f L} & -\frac j {2 \pi f L} -\frac 1 R - 2\pi jf C &\frac 1 R + 2\pi jf C & 0 & -1 & 0\\
+0 & \frac 1 R + 2 \pi jf C & -\frac 1 R - 2\pi jf C & 0 & 0 & -1\\ 
+1 & 0 & 0 & 0 & 0 & 0 \\
+0 & 0 & 1 & 0 & 0 & 0 \\
+0 & 0 & 0 & 1 & 1 & 1 \\
 \end{bmatrix}
 \begin{bmatrix}
-v_{in} \\\ v_{out} \\\ v_{gnd} \\\
-I_{in} \\\ I_{out} \\\ I_{gnd}
+v_{in} \\ v_{out} \\ v_{gnd} \\
+I_{in} \\ I_{out} \\ I_{gnd}
 \end{bmatrix}
-&=
+=
 \begin{bmatrix}
-0 \\\ 0 \\\ 0 \\\ 1 \\\ 0 \\\ 0 
+0 \\ 0 \\ 0 \\ 1 \\ 0 \\ 0 
 \end{bmatrix}
 ```
 Where ``R = 50\Omega``, ``C = 100nF``, and ``L = 100nH``. 
