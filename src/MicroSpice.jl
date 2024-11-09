@@ -25,6 +25,8 @@ struct Link
     c
     l
 end
+Base.isapprox(x::Link, y::Link) = x.r ≈ y.r && x.c ≈ y.c && x.l ≈ y.l
+
 Cap(c) = Link(0, c, 0)
 Ind(L) = Link(0, 0, 1.0/L)
 Res(r) = Link(1/r, 0, 0)
@@ -45,6 +47,27 @@ struct Netlist
     links::Matrix{Link}
     names::Dict{String,Int}
 end
+
+
+"""
+A circuit is defined as a set of nodes connected by admittances. Each
+node may be set to a particular voltage, or can have a current injected
+or it can be free-floating. This is modeled as a linear system of equations 
+in terms of the `n` nodal voltages of which `m` are externally constrained, 
+and `k` injected currents. The first `n` of these equations define 
+the relationship between node voltages and injected currents and are
+of rank `n-1`. The next `m` equations define externally set voltages 
+followed by `k` equations for injected currents. We assume that imposed
+voltages and injected currents are on different nodes so this gives
+a rank of `n + m + k - 1` so far. There are an additional `n-m-k`
+equations that set all remaining injected currents to zero and a
+final constraint that sets the sum of all injected currents to zero.
+"""
+struct ComplexCircuit
+    n::Int
+    links::Matrix
+end
+
 
 raw"""
 Constructs a Netlist from a Spice circuit. As an example, here 
@@ -129,13 +152,35 @@ function solve(nl::Netlist, inputs::Vector, outputs::Vector)
     end
 end
 
+function inputImpedance(nl::Netlist, in, ref)
+    input = nl.names[string(in)]
+    gnd = nl.names[string(ref)]
+    frequency -> begin
+        c = ComplexCircuit(nl, frequency)
+        state = solve(c, [gnd => 0], [input => 1])
+        return state[input]
+    end
+end
+
+function transfer(nl::Netlist, in, out, ref)
+    input = nl.names[string(in)]
+    output = nl.names[string(out)]
+    gnd = nl.names[string(ref)]
+    frequency -> begin
+        c = ComplexCircuit(nl, frequency)
+        state = solve(c, [input => 1, gnd => 0], [])
+        return state[output]
+    end
+end
+
+
 function decode(kind, x::AbstractString)
-    scaleFactor = Dict("k"=>1e3, "M"=>1e6, "meg"=>1e6, "G"=>1e9, 
+    scaleFactor = Dict("k"=>1e3, "M"=>1e6, "meg"=>1e6, "mega"=>1e6, "G"=>1e9, 
                        "m"=>1e-3, "u"=>1e-6, "μ"=>1e-6, "n"=>1e-9, "p"=>1e-12,
                        ""=>1.0, nothing=>1.0)
     units = Dict("H" => 'L', "F" => 'C', "Ω" => 'R', "ohm" => 'R')
 
-    m = match(r"(\d+(?:\.\d*)?(?:e\d+)?)((?:mega)|[mkMGμunp])?((?:ohm)|[HFΩ])?", x)
+    m = match(r"(\d+(?:\.\d*)?(?:e\d+)?)\s*((?:mega|meg)|[mkMGμunp])?\s*((?:ohm)|[HFΩ])?", x)
     if m === nothing
         return 0
     else
@@ -148,25 +193,6 @@ function decode(kind, x::AbstractString)
 end
 
 
-
-"""
-A circuit is defined as a set of nodes connected by admittances. Each
-node may be set to a particular voltage, or can have a current injected
-or it can be free-floating. This is modeled as a linear system of equations 
-in terms of the `n` nodal voltages of which `m` are externally constrained, 
-and `k` injected currents. The first `n` of these equations define 
-the relationship between node voltages and injected currents and are
-of rank `n-1`. The next `m` equations define externally set voltages 
-followed by `k` equations for injected currents. We assume that imposed
-voltages and injected currents are on different nodes so this gives
-a rank of `n + m + k - 1` so far. There are an additional `n-m-k`
-equations that set all remaining injected currents to zero and a
-final constraint that sets the sum of all injected currents to zero.
-"""
-struct ComplexCircuit
-    n::Int
-    links::Matrix
-end
 
 size(c::ComplexCircuit) = c.n
 
@@ -235,18 +261,6 @@ function solve(c::ComplexCircuit, externalVoltages, injectedCurrents)
     eq = [eq1; eq2; eq3; eq4]
     rhs = [rhs1; rhs2; rhs3; rhs4]
     return eq \ rhs
-end
-
-function inputImpedance(circuit::ComplexCircuit, in, ref)
-    n = size(circuit)
-    vi = solve(circuit, [(in, 1), (ref, 0)], [])
-    return 1/vi[n+ref]
-end
-
-function transfer(circuit::ComplexCircuit, signal, in, out, ref=1)
-    n = size(circuit)[1]
-    vi = solve(circuit, [(in, signal), (ref, 0)], [])
-    return vi[out]
 end
 
 
