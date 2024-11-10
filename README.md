@@ -197,7 +197,57 @@ I_{in} \\ I_{out} \\ I_{gnd}
 0 \\ 0 \\ 0 \\ 1 \\ 0 \\ 0 \\ 0
 \end{bmatrix}
 ```
-Where ``R = 50\Omega``, ``C = 100nF``, and ``L = 100nH``. 
+Where ``R = 50\Omega``, ``C = 100nF``, and ``L = 100nH``.
+
+## Parametrized circuits
+
+The value for a component in a `Netlist` can also be a reference to a
+named parameter such as `$R3`. The names for such parameters are
+passed in when a netlist is created and the values are passed in when
+the circuit is materialized. At that point, you can solve the circuit
+for different frequencies.
+
+Parametrizing a circuit is handy, for instance, if you want to investigate
+the effect of component variation or if you want to use an optimizer
+to find optimal component values for complex objectives. Importantly,
+the parameters are injected directly from your values into the circuit
+which should allow auto-differentiation during optimization.
+
+As an example, let's take the example above, but analyze it for the effect
+of ±5% variation of the nominal component values of 100nH and 100nF.
+```julia
+nl = MicroSpice.Netlist(raw"""
+L1 in  out $L
+R1 out gnd 50Ω
+C1 out gnd $C
+""", ["L", "C"])
+fx = 0.5e6:0.005e6:2.5e6
+nominal = [
+	decibel(only(MicroSpice.solve(nl, [:in, :gnd], ["out"], [100e-9, 100e-9])(f, [1, 0])))
+	for f in fx
+	]
+r = [ 
+       decibel(only(MicroSpice.solve(nl, [:in, :gnd], ["out"], Vector(params))(f, [1, 0])))
+       for f in fx,
+       params in  eachrow((0.95 .+ 0.1 * rand(50,2)) .* [100e-9, 100e-9]')
+       ]
+```
+At this point, `r` has an array with 50 columns, one for each
+combination of parameter values. We can plot the nominal response
+surrounded by the range of possibilities like this:
+```julia
+x = vcat(fx./1e6, reverse(fx./1e6))
+y = vcat(vec(minimum(r, dims=2)),reverse(vec(maximum(r, dims=2))))
+plot(Shape(x,y), fill="lightblue", width=0, ylab="Voltage gain (db)",xlab="Frequency (MHz)")
+plot!(fx./1e6, nominal, legend=false)
+```
+Note that most of the variation in response is due to shifts in the
+resonant frequency, not changes in the peak response.
+
+The resulting graph looks like this:
+
+<img width="592" alt="image" src="https://github.com/user-attachments/assets/23c048bc-422c-4e18-824b-af75cc09438c">
+
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://tdunning.github.io/MicroSpice.jl/stable/)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://tdunning.github.io/MicroSpice.jl/dev/)
