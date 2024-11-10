@@ -14,6 +14,63 @@ xl(l, f) = 2π*f*l * 1.0im
 xc(c, f) = 1/(2π*f*c * 1.0im)
 
 """
+An InternalExpression is a sum of a numerical value and references
+into a value vector that will be provided at simulation time.
+"""
+struct InternalExpression
+    invert::Bool
+    base::Float64
+    refs::Vector{Int}
+
+    function InternalExpression(inv::Bool, x::Number, names::Vector)
+        new(inv, x, names)
+    end
+end
+
+InternalExpression(kind::AbstractChar, x::InternalExpression) = x
+
+function InternalExpression(kind::AbstractChar, x::Number, names::Vector)
+    InternalExpression(kind, x)
+end
+
+function InternalExpression(kind::AbstractChar, x::Number)
+    InternalExpression(kind in "RL", x, [])
+end
+
+function InternalExpression(kind::AbstractChar, x::AbstractString, names::Vector)
+    n = findfirst(z->String(z)==x, names)
+    if isnothing(n)
+        throw(ErrorException("Can't find $x in known names: $names"))
+    end
+    InternalExpression(kind in "RL", 0, [n])
+end
+
+function InternalExpression(kind::AbstractChar, x::Symbol, names::Vector)
+    InternalExpression(kind, String(x), names)
+end
+
+function Base.:+(x::InternalExpression, y::InternalExpression)
+    if x.invert != y.invert
+        throw(ErrorException("Incompatible values: $x + $y"))
+    end
+    InternalExpression(x.invert, x.base + y.base, vcat(x.refs, y.refs))
+end
+
+function Base.isapprox(x::InternalExpression, y::InternalExpression; kwargs...)
+    isapprox(x.base, y.base; kwargs...) && Set(x.refs) == Set(x.refs)
+end
+
+function resolve(x::InternalExpression, values::Vector)::Float64
+    raw = getindex.(Ref(values), x.refs)
+    if x.invert
+        f = x->1/x
+        x.base + sum(f.(raw), init=0.0)
+    else
+        x.base + sum(raw, init=0.0)
+    end
+end
+
+"""
 A Link is a composite of pure resistance, inductance and capacitance
 arranged in parallel. 
 
@@ -21,19 +78,34 @@ To simplify combining multiple links, resistance and inductance are
 retained in inverse form (i.e. 1/R, 1/L).
 """
 struct Link
-    r
-    c
-    l
+    r::InternalExpression
+    c::InternalExpression
+    l::InternalExpression
+    function Link(rx, cx, lx)
+        new(InternalExpression('R', rx), InternalExpression('C', cx), InternalExpression('L', lx))
+    end
+
+    function Link(r, c, l, names::Vector)
+        Link(InternalExpression(r, names), 
+             InternalExpression(l, names),
+             InternalExpression(c, names))
+    end
 end
+
+
 Base.isapprox(x::Link, y::Link) = x.r ≈ y.r && x.c ≈ y.c && x.l ≈ y.l
 
-Cap(c) = Link(0, c, 0)
-Ind(L) = Link(0, 0, 1.0/L)
-Res(r) = Link(1/r, 0, 0)
+# For actual values, we invert now, if necessary
+Cap(C::Number) = Link(  0, C,   0)
+Ind(L::Number) = Link(  0, 0, 1/L)
+Res(R::Number) = Link(1/R, 0,   0)
+
+# For expressions, the inversion is already done or will happen at resolve time
+Cap(C::InternalExpression) = Link(0, C, 0)
+Ind(L::InternalExpression) = Link(0, 0, L)
+Res(R::InternalExpression) = Link(R, 0, 0)
 
 Base.:+(x::Link, y::Link) = Link(x.r + y.r, x.c + y.c, x.l + y.l)
-
-impedance(x::Link, f) = 1/(1/x.r + 1/xc(x.r, f) + 1/xl(x.l, f))
 
 struct Netlist
     n::Int
@@ -58,7 +130,7 @@ final constraint that sets the sum of all injected currents to zero.
 """
 struct ComplexCircuit
     n::Int
-    links::Matrix
+    links::Matrix{ComplexF64}
 end
 
 
@@ -105,12 +177,12 @@ decibel(x) = 20 * log10(abs(x))
  11.05634871505561
 ```
 """
-Netlist(s::AbstractString) = Netlist(IOBuffer(s))
+Netlist(s::AbstractString, names=[]) = Netlist(IOBuffer(s), names)
 
 """
 Reads some input and parses that input as a netlist
 """
-function Netlist(input)
+function Netlist(input, names=[])
     c = []
     nodes = Dict()
     links = Dict{Tuple,Link}()
@@ -120,24 +192,16 @@ function Netlist(input)
             continue
         end
         name, from, to, v = split(x)
-        value = decode(kind, v)
+        value = decode(kind, v, names)
         i = nodes[from] = get(nodes, from, length(nodes)+1)
         j = nodes[to] = get(nodes, to, length(nodes)+1)
         i, j = sort([i, j])
         
-        if kind == 'C'
-            z = Cap(value)
-        elseif kind == 'L'
-            z = Ind(value)
-        elseif kind == 'R'
-            z = Res(value)
-        else
-            continue
-        end
-        links[(i, j)] = get(links, (i, j), Link(0, 0, 0)) + z
+        a = get(links, (i, j), Link(0, 0, 0))
+        links[(i, j)] = a + value
     end
     n = length(nodes)
-    m = fill(Link(0,0,0), (n,n))
+    m = fill(Link(0, 0, 0), (n, n))
     for (coords,v) in links
         m[coords...] = v
         m[reverse(coords)...] = v
@@ -150,11 +214,11 @@ Returns a function that simulates a circuit with specified voltage
 inputs and outputs. That function takes as arguments the frequency
 and a list of input voltages and it returns a list of output voltages.
 """
-function solve(nl::Netlist, inputs::Vector, outputs::Vector)
+function solve(nl::Netlist, inputs::Vector, outputs::Vector, parameters::Vector=[])
     vIn = [nl.names[string(k)] for k in inputs]
     vOut = [nl.names[string(k)] for k in outputs]
     (frequency, inputs) -> begin
-        c = ComplexCircuit(nl, frequency)
+        c = ComplexCircuit(nl, frequency, parameters)
         result = solve(c, zip(vIn,inputs), [])
         return getindex.(Ref(result), vOut)
     end
@@ -186,37 +250,54 @@ function transfer(nl::Netlist, in, out, ref)
     end
 end
 
-function decode(kind, x::AbstractString)
+function decode(kind, x::AbstractString, names::Vector=[])
     scaleFactor = Dict("k"=>1e3, "M"=>1e6, "meg"=>1e6, "mega"=>1e6, "G"=>1e9, 
                        "m"=>1e-3, "u"=>1e-6, "μ"=>1e-6, "n"=>1e-9, "p"=>1e-12,
                        ""=>1.0, nothing=>1.0)
     units = Dict("H" => 'L', "F" => 'C', "Ω" => 'R', "ohm" => 'R')
 
-    m = match(r"(\d+(?:\.\d*)?(?:e\d+)?)\s*((?:mega|meg)|[mkMGμunp])?\s*((?:ohm)|[HFΩ])?", x)
-    if m === nothing
-        return 0
+    if x[1] == '$'
+        value = InternalExpression(kind, x[2:end], names)
     else
-        raw, scale, unit = m
-        if unit !== nothing && unit != "" && kind ≠ units[unit]
-            throw(ErrorException("Bad unit ($unit) for component kind $kind"))
+        m = match(r"(\d+(?:\.\d*)?(?:e\d+)?)\s*((?:mega|meg)|[mkMGμunp])?\s*((?:ohm)|[HFΩ])?", x)
+        if m === nothing
+            value = 0
+        else
+            raw, scale, unit = m
+            if unit !== nothing && unit != "" && kind ≠ units[unit]
+                throw(ErrorException("Bad unit ($unit) for component kind $kind"))
+            end
+            value = parse(Float64, raw) * scaleFactor[scale]
         end
-        return parse(Float64, raw) * scaleFactor[scale]
+    end
+    if kind == 'C'
+        return Cap(value)
+    elseif kind == 'L'
+        return Ind(value)
+    elseif kind == 'R'
+        return Res(value)
+    else
+        throw(ErrorException("Bad kind of component: $kind"))
     end
 end
 
 
 size(c::ComplexCircuit) = c.n
 
-function ComplexCircuit(n::Netlist, f)
-    σ = admittance.(n.links, f)
+function ComplexCircuit(n::Netlist, f, parameters=[])
+    let ω = 2π * f * -1im,
+        f = link -> 
+            let lx = resolve.([link.r, link.l, link.c], Ref(parameters))
+                r, l, c = lx
+                r + ω * c + l / ω
+            end
+        σ = f.(n.links)
     i = diagind(σ)
     σ[i] .= 0
     σ[i] = -sum(σ, dims=1)
     ComplexCircuit(length(n.names), σ)
 end
 
-admittance(x::Link, f) = let ω = 2π * f * -1im
-    x.r + ω * x.c + x.l / ω
 end
 
 """
