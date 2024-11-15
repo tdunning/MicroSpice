@@ -60,13 +60,21 @@ function Base.isapprox(x::InternalExpression, y::InternalExpression; kwargs...)
     isapprox(x.base, y.base; kwargs...) && Set(x.refs) == Set(x.refs)
 end
 
-function resolve(x::InternalExpression, values::Vector)::Float64
-    raw = getindex.(Ref(values), x.refs)
-    if x.invert
-        f = x->1/x
-        x.base + sum(f.(raw), init=0.0)
+function resolve(x::InternalExpression, values::AbstractVector)
+    if length(x.refs) == 0
+        # special case here to avoid sum(Vector{Any}[]) propagating bad type info
+        return x.base
     else
-        x.base + sum(raw, init=0.0)
+        if length(values) == 0
+            throw(BoundsError("No values provided for reference value"))
+        end
+        raw = getindex.(Ref(values), x.refs)
+        if x.invert
+            f = x->1/x
+            x.base + sum(f.(raw))
+        else
+            x.base + sum(raw)
+        end
     end
 end
 
@@ -130,7 +138,7 @@ final constraint that sets the sum of all injected currents to zero.
 """
 struct ComplexCircuit
     n::Int
-    links::Matrix{ComplexF64}
+    links::Matrix
 end
 
 
@@ -214,7 +222,7 @@ Returns a function that simulates a circuit with specified voltage
 inputs and outputs. That function takes as arguments the frequency
 and a list of input voltages and it returns a list of output voltages.
 """
-function solve(nl::Netlist, inputs::Vector, outputs::Vector, parameters::Vector=[])
+function solve(nl::Netlist, inputs::AbstractVector, outputs::AbstractVector, parameters::AbstractVector=[])
     vIn = [nl.names[string(k)] for k in inputs]
     vOut = [nl.names[string(k)] for k in outputs]
     (frequency, inputs) -> begin
@@ -293,7 +301,6 @@ function ComplexCircuit(n::Netlist, f, parameters=[])
             end
         σ = f.(n.links)
     i = diagind(σ)
-    σ[i] .= 0
     σ[i] = -sum(σ, dims=1)
     ComplexCircuit(length(n.names), σ)
 end
@@ -322,16 +329,27 @@ function solve(c::ComplexCircuit, externalVoltages, injectedCurrents)
     # \sum_{j\ne i} (v_j - v_i) \sigma_{ij} - I_i = 0
     # but \sigma_{ii} = -\sum_{j \ne i} \sigma_{ij} so
     # \sum_{j=1\ldots n} \sigma_{ij} v_i - I_i = 0
-    eq1 = [c.links -I]
-    rhs1 = zeros(n)
+
+    # we construct an identity matrix the hard way to ensure type matching
+    function id(n)
+        v = zeros(typeof(c.links[1,1]), n, n)
+        v[diagind(v)] .= 1
+        return v
+    end
+
+    t = typeof(c.links[1,1])
+        
+    eq1 = [c.links -id(n)]
+    rhs1 = zeros(t, n)
 
     # impose the voltages (if any).
-    eq2 = [I zeros(n, n)][first.(externalVoltages), :]
-    rhs2 = getindex.(externalVoltages, 2)
+    eq2 = [id(n) zeros(t, n, n)][first.(externalVoltages), :]
+    rhs2 = zeros(t, length(externalVoltages), 1)
+    rhs2 .= getindex.(externalVoltages, 2)
 
     # set the net currents to zero, 
-    eq3 = [zeros(n, n) I]
-    rhs3 = zeros(n)
+    eq3 = [zeros(t, n, n) id(n)]
+    rhs3 = zeros(t, n, 1)
 
     # except where we inject currents
     i = first.(injectedCurrents)
@@ -344,8 +362,8 @@ function solve(c::ComplexCircuit, externalVoltages, injectedCurrents)
     rhs3 = rhs3[i]
 
     # and finally, all injected (and other) currents must balance
-    eq4 = [zeros(n)' ones(n)']
-    rhs4 = zeros(1)
+    eq4 = [zeros(t, n)' ones(t, n)']
+    rhs4 = zeros(t, 1)
 
     eq = [eq1; eq2; eq3; eq4]
     rhs = [rhs1; rhs2; rhs3; rhs4]

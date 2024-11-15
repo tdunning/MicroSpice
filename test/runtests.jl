@@ -1,5 +1,5 @@
 using MicroSpice
-using Test, LinearAlgebra
+using Test, LinearAlgebra, CSV, DataFrames
 
 
 @testset "decoding values" begin
@@ -76,7 +76,6 @@ end
     end
 end
 
-
 @testset "construction of a netlist with parameters" begin
     let nl = MicroSpice.Netlist("L1 in  out \$L\nR1 out gnd 50\nC1 out gnd 100nF\n", ["L"])
         @test_throws BoundsError MicroSpice.ComplexCircuit(nl, 1.5e6, [])
@@ -93,5 +92,39 @@ end
         s = MicroSpice.solve(nl, [:in, :gnd], [:out], [120e-9])
         y = [20*log10(abs(only(s(f, [1, 0])))) for f in 1.2e6:0.1e6:1.8e6]
         @test y ≈ [9.942511, 13.964684, 22.554476, 23.136562, 13.386021, 8.635949, 5.423041] atol=1e-5
+    end
+end
+
+@testset "validate against LTSpice simulations" begin
+    # RLC low-pass filter
+    let nx = MicroSpice.Netlist(raw"""
+       R1 in N001 50
+       L1 N001 out 260n
+       C2 out gnd 225p
+       R2 out gnd 50
+       """)
+        fz=MicroSpice.solve(nx, [:in, :gnd], [:out])
+        @test 20*log10(abs(only(fz(50e6, [2,0])))) ≈ -10.101 atol=0.001
+    end
+
+    # fancier pi filter plus extra zero
+    let ref = CSV.read(open("wave.csv"), DataFrame, comment="# ")
+        nl = MicroSpice.Netlist(raw"""
+    R1 in N001 50
+    L1 N001 out $L1
+    C1 N001 gnd $C1
+    C2 out N002 $C2
+    R2 out gnd 50
+    L2 N002 gnd $L2
+    R3 N002 gnd $R
+    """, [:L1, :C1, :C2, :L2, :R])
+        design = [260e-9,  243e-12,  
+                  225e-12,  17e-9,
+                  40]
+        z = MicroSpice.solve(nl, [:in, :gnd], [:out], design)
+        out = z.(ref[!,:freq], Ref([2, 0]))
+        clean = only.(out[:,1])
+        @info "" maximum(abs.((ref[!,:real] .- im * ref[!,:imag]) .- clean))
+        @test maximum(abs.((ref[!,:real] .- im * ref[!,:imag]) .- clean)) ≈ 0 atol = 2e-4
     end
 end
