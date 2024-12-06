@@ -174,7 +174,7 @@ function to solve the bound circuit. In the second step, the circuit
 is solved for a specific frequency and vector of input voltages.
 
 ```jldoctest; filter = r"(\\d*)\\.(\\d{9})\\d+" => s"\\1.\\2***"
-nl = MicroSpice.Netlist("L1 in  out 100n\nR1 out gnd 50\nC1 out gnd 100n\n", [], [:in, :gnd], [:out]))
+nl = MicroSpice.Netlist("L1 in  out 100n\nR1 out gnd 50\nC1 out gnd 100n\n", [], [:in, :gnd], [:out])
 s = MicroSpice.solve(nl)
 decibel(x) = 20 * log10(abs(x))
 [decibel(only(s(f, [1, 0]))) for f in [1.4e6, 1.5e6, 1.62e6, 1.8e6]]

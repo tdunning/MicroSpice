@@ -53,10 +53,10 @@ the ground reference, we can simulate the voltage transfer function for
 this circuit with this code:
 
 ```jldoctest; filter = r"(\d*)\.(\d{9})\d+" => s"\1.\2***"
-nl = MicroSpice.Netlist("L1 in  out 100nH\nR1 out gnd 50Ω\nC1 out gnd 100nF\n")
-s = MicroSpice.solve(nl, [:in => 1, :gnd => 0], "out")
+nl = MicroSpice.Netlist("L1 in  out 100nH\nR1 out gnd 50Ω\nC1 out gnd 100nF\n", [], [:in, :gnd], [:out])
+s = MicroSpice.solve(nl)
 decibel(x) = 20 * log10(abs(x))
-(decibel ∘ s).([1.4e6, 1.5e6, 1.62e6, 1.8e6])
+[decibel(only(s(f, [1, 0]))) for f in [1.4e6, 1.5e6, 1.62e6, 1.8e6]]
 # output
 4-element Vector{Float64}:
  12.883077832402897
@@ -220,10 +220,10 @@ nl = MicroSpice.Netlist(raw"""
 L1 in  out $L
 R1 out gnd 50Ω
 C1 out gnd $C
-""", ["L", "C"])
+""", ["L", "C"], [:in, :gnd], [:out])
 fx = 0.5e6:0.005e6:2.5e6
 nominal = [
-	decibel(only(MicroSpice.solve(nl, [:in, :gnd], ["out"], [100e-9, 100e-9])(f, [1, 0])))
+	decibel(only(MicroSpice.solve(nl, [100e-9, 100e-9])(f, [1, 0])))
 	for f in fx
 	]
 r = [ 
