@@ -1,129 +1,135 @@
 using MicroSpice
+using Plots
+using Statistics
 
-nl1 = MicroSpice.Netlist(raw"""
-R1 in N001 50
-L1 N001 out $L1
-C1 N001 gnd $C1
-C2 out N002 $C2
-R2 out gnd 50
-L2 N002 gnd $L2
-R3 N002 gnd $R
-""", [:L1, :C1, :C2, :L2, :R])
-
-nl2 = MicroSpice.Netlist(raw"""
-R1 in N001 50
-L1 N001 out $L1
-C1 N001 gnd $C1
-C2 out gnd $C2
-R2 out gnd 50
-""", [:L1, :C1, :C2])
-c2 = [300e-9, 150e-12, 150e-12]
-
-nl3 = MicroSpice.Netlist(raw"""
-R1 in out 50
-C1 out N001 225p
-R2 out gnd 50
-L2 N001 gnd 20n
-R3 N001 gnd 30
-""", [])
+evalCircuit(nl, frequencies, penalties) = parameters -> quality(nl, parameters, frequencies, penalties)
 
 """
-Chebyshev 5th order with 5db passband ripple
+Finds a worst case value of performance over variation of component values
 """
-nl4 = MicroSpice.Netlist(raw"""
-R1 in N001 50
-L1 N001 N002 $L1
-C1 N002 0 $C2
-R2 out 0 50
-C2 N001 0 $C1
-L2 N002 out $L2
-C3 out 0 $C3
-""", [:L1, :L2, :C1, :C2, :C3])
-c4 = [162.1753e-9, 162.1753e-9, 550.6910e-12, 700.1618e-12, 550.6910e-12]
-
-"""
-Chebyshev 3rd order with 5dB passband ripple
-"""
-nl5 = MicroSpice.Netlist(raw"""
-R1 in N001 50
-L1 N001 out $L1
-V1 in 0 SINE() AC 2
-C2 out 0 $C2
-R2 out 0 50
-C1 N001 0 $C1
-""", [:L1, :C1, :C2])
-c5 = [151.9541e-9, 529.6833e-12, 529.6833e-12]
-
-"""Like LinRange, but returns values evenly spaced on a log-scale"""
-expRange(low, high, n) = exp.(LinRange(log(low), log(high), n))
-                              
-"""
-Plots the response curve for a model (a function of frequency
-returning dB response) with highlights on the frequencies of interest
-and table showing how the figure of merit for a filter is
-computed. The frequencies given are a vector of harmonics starting
-with the fundamental. The penalties correspond to the degree of
-inherent suppression of the harmonics for the 2nd through nth
-harmonics.
-"""
-function statusPlot(model, frequencies, penalties)
-    modelx = f -> model(f*1e6)
-    
-    top = model(frequencies[1]) + 3
-    plot(modelx, expRange(10,300,100), legend=false, yrange=(top-35, top),
-         xlab="Frequency (MHz)\n", ylab="\nResponse (dB)",
-         title="\nFilter analysis")
-    scatter!(modelx, frequencies ./ 1e6)
-    scatter!(frequencies[2:end]./1e6, model.(frequencies[2:end]) .- penalties)
-    y = top-20
-    dy = 1.7
-    x0 = 250
-    i = 1
-    annotate!(x0, y+dy, ("Response", :right, 10))
-    annotate!(x0 + 30, y+dy, ("Net", :right, 10))
-    response = model(frequencies[1])
-    annotate!(x0, y, ("$(round(response, digits=1))", :right, 8))
-    annotate!(x0 + 30, y, ("--", :right, 8))
-    y -= dy
-    for f in frequencies[2:end]
-        response = model(f)
-        annotate!(x0, y, ("$(round(response, digits=1))", :right, 8))
-        annotate!(x0 + 30, y, ("$(round(response-penalties[i], digits=1))", :right, 8))
-        y -= dy
-        i += 1
+function quality(nl, parameters, frequencies, penalties)
+    trials = []
+    for i in 1:100
+        p = parameters .* (1 .+ 0.05 *randn(size(parameters)))
+        append!(trials, q0(nl, p, frequencies, penalties))
     end
+    return maximum(trials)
 end
 
-function fitModel(nl, x0, frequencies, penalties)
-    MicroSpice.solve(nl, [:in, :gnd], [:out], parameters)
+"""
+Internal function that returns the fitness of a solution prioritizing
+the net attenuation at frequencies of interest adjusted by penalties.
+There is a secondary goal the encourages low attenuation at the primary
+frequency.
+"""
+function q0(nl, parameters, frequencies, penalties)
+    fx = MicroSpice.solve(nl, parameters)
     model = f->20*log10(abs(only(fx(f, [2,0]))))
-    q = maximum(merit(model, frequencies, penalties))
-end
-
-function merit(model, frequencies, penalties)
     response = model.(frequencies)
-    net = (response[1] .- response[2:end]) .- penalties
+    net =  (response[2:end] .- response[1]) .+ penalties
+    return maximum(net) - response[1]
 end
+
+"""
+State of an evolutionary search species
+"""
+struct ClimbState
+    ix::Vector         # the current selection
+    old::Vector        # the previous (for recorded step)
+    value::Float64     # performance at current point
+    rate::Float64      # omni mutation rate
+end
+
+hash(x::ClimbState) = hash(x.ix)
+
+"""
+Mutates a current state into a new state given
+
+c - the old state
+q - the fitness function (lower is better)
+parameterSets - a list of lists of parameter values to translate indexes in c into values for q
+μ - how much history should affect the new mutation rate (near one for lots of history, near zero for none)
+
+"""
+function mutate(c::ClimbState, q, parameterSets, μ)::ClimbState
+    ix = copy(c.ix)
+    rate = c.rate
+    omni = 0
+    m = length(parameterSets)
+    for i in 1:m
+        # this is like exponential distribution but with a long tail
+        v = -log(1-rand()) + log(1-rand())^2
+        omni += v
+        # find new state with the omni mutation plus a move in the previous direction(ish)
+        ix[i] += Int(round(rand(-1:2:1) * rate * v + (1 + randn()) * (ix[i] - c.old[i])))
+        # avoid running off the ends
+        if ix[i] < 1
+            ix[i] = 1
+        elseif ix[i] > length(parameterSets[i])
+            ix[i] = length(parameterSets[i])
+        end
+    end
+    # the new rate is a combination of historical rates and the latest jump
+    # the recorded step also feeds into the new omni mutation
+    rate = μ * rate + (1-μ) * 0.8 * (rate * omni / m + mean(ix .- c.ix) / 10)
+    return ClimbState(ix, c.ix, q(getindex.(parameterSets, ix)), rate)
+end
+
+"""
+This is an meta-evolutionary hill-climber. Each climber has a current
+state and an evolution rate. To mutate a climber, we combine omni-directional
+mutation scaled by the rate component of a mutation state plus some 
+mutation along the direction of the previous step. The size of the 
+omni-directional mutation is then used to mutate the scale of the next
+omni-directional mutation. In each generation
+the fraction of survivors is λ.
+
+The parameters are:
+
+q - the quality function that translates parameter values into performance estimate (lower is better). 
+ix - an array of indexes into the parameterSets that define the starting point
+parameterSets - an array of arrays of component values. This translates ix into what q wants 
+
+Optional keyword parameters include:
+
+pop - the population size
+λ - the survival fraction
+μ - momentum for omni-directional mutation rate, 1 means stable, 0 means latest value rules
+rate - initial value for the omni-directional mutation
+gens - the number of generations 
+info - how often to report top few values (small means often)
+"""
+function metaClimb(q, ix, parameterSets; pop=100, λ=0.2, μ=0.8, rate=1, gens=30, info=20)
+    if info < 1
+        info = 1
+    end
+    history = []
+
+    # fill up the population by mutating the intial state
+    population = Vector{ClimbState}()
+    c0 = ClimbState(ix, ix, q(ix), rate)
+    while length(population) < pop
+        push!(population, mutate(c0::ClimbState, q, parameterSets, μ))
+    end
     
-function resample(nl, quality, samples=20)
-    parameters -> begin
-        p = (0.95 .+ 0.1 * rand(samples, length(parameters))) .* parameters'
-        minimum([quality(nl, c) for c in eachrow(p)])
+    survivors = Int(floor(λ * pop) + 1)
+    j = 1
+    for g in 1:gens
+        if g%info == 0
+            @info "step" g population[1] population[2]
+        end
+        # find the best examples
+        sort!(population, by=c->c.value + c.rate/100)
+        push!(history, population[1:10])
+        # apart from the survivors, fill out with new mutants
+        for i in survivors+1:pop
+            c = mutate(population[j], q, parameterSets, μ)
+            population[i] = c
+            j = j % survivors + 1
+        end
     end
+    # sort one last time to show the actual results
+    sort!(population, by=c->c.value + c.rate/100)
+    return history, population
 end
 
-function attenuation(frequencies, penalties)
-    offset = 10 .^ (-penalties/20)
-    (nl, parameters) -> begin
-        s = MicroSpice.solve(nl, [:in, :gnd], [:out], parameters)
-        r = (abs ∘ only ∘ s).(frequencies, Ref([1,0]))
-        r[1].^2 / sum(offset .* r[2:end])
-    end
-end
-
-f = 28.126100e6
-r0 = [-19,-14.5,-24,-27]
-base = [220e-9, 220e-12, 220e-12, 10e-9, 30]
-base2 = [220e-9, 220e-12, 220e-12, 40e-9, 100]
-#frequencies = f * (1:5)
-decibel(x) = 20 * log10(abs(x))

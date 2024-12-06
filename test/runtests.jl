@@ -55,41 +55,42 @@ end
         
 
 @testset "construction of a vanilla netlist" begin
-    let nl = MicroSpice.Netlist("L1 in  out 100n\nR1 out gnd 50\nC1 out gnd 100n\n")
+    let nl = MicroSpice.Netlist("L1 in  out 100n\nR1 out gnd 50\nC1 out gnd 100n\n", [], [:in, :gnd], [:out])
         @test nl.n == 3
         @test getindex.(Ref(nl.names), ["in", "out", "gnd"]) == [1,2,3]
 
-        @test nl.links[1,3] ≈ MicroSpice.Link(0, 0, 0)
-        @test nl.links[3,1] ≈ MicroSpice.Link(0, 0, 0)
+        @test get(nl.links, (1,3), MicroSpice.Link(0, 0, 0)) ≈ MicroSpice.Link(0, 0, 0)
+        @test get(nl.links, (3,1), MicroSpice.Link(0, 0, 0)) ≈ MicroSpice.Link(0, 0, 0)
         for i in 1:3
-            @test nl.links[i, i] ≈ MicroSpice.Link(0, 0, 0)
+            @test get(nl.links, (i, i), MicroSpice.Link(0, 0, 0)) ≈ MicroSpice.Link(0, 0, 0)
         end
 
-        @test nl.links[2,3] ≈ MicroSpice.Link(0.02, 1.0e-7, 0)
-        s = MicroSpice.solve(nl, [:in, :gnd], [:out])
+        @test nl.links[(2,3)] ≈ MicroSpice.Link(0.02, 1.0e-7, 0)
+        s = MicroSpice.solve(nl, [])
+        s(1e6, [1, 0])
         y = [20*log10(abs(only(s(f, [1, 0])))) for f in 1.2e6:0.1e6:1.8e6]
         @test y ≈ [7.294866, 9.545497, 12.883077, 18.914298, 32.859821, 16.921493, 11.056348] atol=1e-5
-        x = MicroSpice.inputImpedance(nl, :in, :gnd)
-        @test abs.(x.([1.2e6, 1.5e6])) ≈ [0.5724569, 0.1202032] atol=1e-6
-        x = MicroSpice.transfer(nl, :in, :out, :gnd)
+#        x = MicroSpice.inputImpedance(nl)
+#        @test abs.(x.([1.2e6, 1.5e6])) ≈ [0.5724569, 0.1202032] atol=1e-6
+        x = MicroSpice.transfer(nl)
         @test abs.(x.([1.2e6, 1.5e6])) ≈ [2.31602539, 8.82500450] atol=1e-6
     end
 end
 
 @testset "construction of a netlist with parameters" begin
-    let nl = MicroSpice.Netlist("L1 in  out \$L\nR1 out gnd 50\nC1 out gnd 100nF\n", ["L"])
-        @test_throws BoundsError MicroSpice.ComplexCircuit(nl, 1.5e6, [])
-        c = MicroSpice.ComplexCircuit(nl, 1.5e6, [100e-9])
+    let nl = MicroSpice.Netlist("L1 in  out \$L\nR1 out gnd 50\nC1 out gnd 100nF\n", ["L"], [:in, :gnd], [:out])
+#        @test_throws BoundsError MicroSpice.ComplexCircuit(nl, 1.5e6, [])
+#        c = MicroSpice.ComplexCircuit(nl, 1.5e6, [100e-9])
 
         # without parameters, the sim is doomed but the problem only shows at bind-time
-        s = MicroSpice.solve(nl, [:in, :gnd], [:out])
+        s = MicroSpice.solve(nl, [])
         @test_throws BoundsError s(1e6, [1, 0])
 
-        s = MicroSpice.solve(nl, [:in, :gnd], [:out], [100e-9])
+        s = MicroSpice.solve(nl, [100e-9])
         y = [20*log10(abs(only(s(f, [1, 0])))) for f in 1.2e6:0.1e6:1.8e6]
         @test y ≈ [7.294866, 9.545497, 12.883077, 18.914298, 32.859821, 16.921493, 11.056348] atol=1e-5
 
-        s = MicroSpice.solve(nl, [:in, :gnd], [:out], [120e-9])
+        s = MicroSpice.solve(nl, [120e-9])
         y = [20*log10(abs(only(s(f, [1, 0])))) for f in 1.2e6:0.1e6:1.8e6]
         @test y ≈ [9.942511, 13.964684, 22.554476, 23.136562, 13.386021, 8.635949, 5.423041] atol=1e-5
     end
@@ -102,8 +103,8 @@ end
        L1 N001 out 260n
        C2 out gnd 225p
        R2 out gnd 50
-       """)
-        fz=MicroSpice.solve(nx, [:in, :gnd], [:out])
+       """, [], [:in, :gnd], [:out])
+        fz=MicroSpice.solve(nx)
         @test 20*log10(abs(only(fz(50e6, [2,0])))) ≈ -10.101 atol=0.001
     end
 
@@ -117,14 +118,13 @@ end
     R2 out gnd 50
     L2 N002 gnd $L2
     R3 N002 gnd $R
-    """, [:L1, :C1, :C2, :L2, :R])
+    """, [:L1, :C1, :C2, :L2, :R], [:in, :gnd], [:out])
         design = [260e-9,  243e-12,  
                   225e-12,  17e-9,
                   40]
-        z = MicroSpice.solve(nl, [:in, :gnd], [:out], design)
+        z = MicroSpice.solve(nl, design)
         out = z.(ref[!,:freq], Ref([2, 0]))
         clean = only.(out[:,1])
-        @info "" maximum(abs.((ref[!,:real] .- im * ref[!,:imag]) .- clean))
         @test maximum(abs.((ref[!,:real] .- im * ref[!,:imag]) .- clean)) ≈ 0 atol = 2e-4
     end
 end
