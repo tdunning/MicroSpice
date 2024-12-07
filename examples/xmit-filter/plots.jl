@@ -48,8 +48,8 @@ function statusPlot!(nl, parameters, frequencies, penalties)
     model = f->20*log10(abs(only(fx(f, [2,0]))))
     
     top = model(frequencies[1]) + 3
-    plot!(f -> model(f * 1e6), expRange(10,300,100))
-    scatter!(f -> model(f * 1e6), frequencies ./ 1e6, markercolor="green")
-    scatter!(frequencies[2:end]./1e6, model.(frequencies[2:end]) .+ penalties, markercolor="red")
+    plot!(f -> model(f * 1e6), expRange(10,300,100), label="Evolved")
+    scatter!(f -> model(f * 1e6), frequencies ./ 1e6, markercolor="green", label=false)
+    scatter!(frequencies[2:end]./1e6, model.(frequencies[2:end]) .+ penalties, markercolor="red", label="Output level")
     return model
 end

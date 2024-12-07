@@ -67,23 +67,27 @@ decibel(x) = 20 * log10(abs(x))
 
 # Simulation Method
 
-Once a `Netlist` is instantiated as a circuit consisting of ``n`` nodes
-connected by complex admittances (the inverse of impedances), we can build
-a system of linear equations in terms of the node voltages and the currents
-injected into each node from the outside. Roughly half of this system
-expresses the constraints of the circuit itself while the other half
-expresses the voltages or currents imposed on the circuit.
+A `Netlist` defines a circuit as a sparse matrix of abstract
+admittances connecting circuit nodes. To simulate the circuit, the
+abstract admittances are resolved to complex admittances at a
+particular frequency to form a system of linear equations in terms of
+the node voltages and the currents injected into each node from the
+outside. Roughly half of this system expresses the constraints of the
+circuit itself while the other half expresses the voltages or currents
+imposed on the circuit.
 
 The variables in the system are the node voltages and the injected
 currents. For each internal node without any imposed voltage, we have a
 current balance condition between internal node-to-node currents and the
 (possibly zero) injected current. For nodes with an imposed voltage, we
 don't know the injected current, but we do have a constraint on the node
-voltages.
+voltage. For nodes with an injected current, the current balance
+formula is changed to force a balance against the injected current.
 
-To make the system solvable, the sum of all injected currents must be zero
-and the voltage of at least one node in each connected sub-circuit must be
-set to a known value.
+These constraints give us an underdetermined system. Setting the sum
+of all injected currents to zero will make the system fully determined
+if at least one node in each connected sub-circuit is set to a known
+voltage.
 
 These linear equations are defined in several batches in terms of the ``n``
 node voltages, the ``0 < k \le n`` forced voltages and the ``n-k``

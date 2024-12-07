@@ -122,7 +122,7 @@ function metaClimb(q, ix, parameterSets; pop=100, λ=0.2, μ=0.8, rate=1, gens=3
         sort!(population, by=c->c.value + c.rate/100)
         push!(history, population[1:10])
         # apart from the survivors, fill out with new mutants
-        for i in survivors+1:pop
+        Threads.@threads for i in survivors+1:pop
             c = mutate(population[j], q, parameterSets, μ)
             population[i] = c
             j = j % survivors + 1

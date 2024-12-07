@@ -15,7 +15,7 @@ q = evalCircuit(nl6, f:f:5f, r0)
 
 start = rand.(eachindex.([inductors(false), caps(), caps(), caps()]))
 
-h,best = metaClimb(q, start, [inductors(false), caps(), caps(), caps()], gens=100, rate=1, λ=0.3, pop=100, μ=0.9, info=10)
+h,best = metaClimb(q, start, [inductors(false), caps(), caps(), caps()], gens=100, rate=1, λ=0.1, pop=100, μ=0.9, info=10)
 
 # check out the 5 best performers at the end
 best[1:5]
