@@ -175,7 +175,7 @@ following table.
 
 The response curves of each filter are shown in the following figure.
 
-<img width="400" alt="Response curves for the evolved circuit versus
+<img width="800" alt="Response curves for the evolved circuit versus
 the one derived using a filter design tool"
 src="./images/response.png">
 
@@ -193,12 +193,3 @@ order standard design that uses exact component values but it can be
 built with parts on hand.
 
 
-```spice
-R1 in N001 50
-L1 N001 out $L1
-C1 N001 gnd $C1
-C2 out N002 $C2
-R2 out gnd 50
-L2 N002 gnd $L2
-R3 N002 gnd $R
-```
