@@ -190,6 +190,8 @@ evolved filter and the third harmonic is even lower.
 
 This performance of the evolved filter is roughly on par with a 5th
 order standard design that uses exact component values but it can be
-built with parts on hand.
+built with parts on hand. On the other hand, it achieves this
+performance at the cost of roughly 7dB of ripple in the passband which
+would make the evolved design unusable in more general applications.
 
 
