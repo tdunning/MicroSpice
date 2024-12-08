@@ -2,7 +2,9 @@
 
 MicroSpice is a very simple circuit simulator that simulates an electronic
 circuit composed a variety of passive components. This circuit can be
-constructed using a subset of standard Spice netlist syntax.
+constructed using a subset of standard Spice netlist syntax. The
+purpose is to allow fast simulations via a simple API in native Julia
+to facilitate automated design optimization.
 
 As an example, here is a simple RLC circuit with `in` as input and `out` as
 output
@@ -18,7 +20,9 @@ and capacitors (C). Component values can be specified using standard SI
 prefixes such as `k` (kilo = 1e3), `M` (Mega=1e6), `G`(giga=1e9), `m`
 (milli=1e-3), `μ` (micro=1e-6), `n` (nano=1e-9), or `p` (pico=1e-12). In
 addition, the non-standard forms `u` (micro=1e-6) and `meg` (Mega=1e6) are
-used for Spice compatibility.
+used for Spice compatibility. Extension to support independent and
+dependent voltage or current sources and inductor coupling should be a
+relatively simple exercise, but I don't currently plan to do this myself.
 
 Units including H (Henry), F (Farad) and Ω (ohm) are allowed, but are
 optional, but the unit must match the type of component.
