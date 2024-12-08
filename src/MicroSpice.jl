@@ -222,8 +222,10 @@ Given a `Netlist` return a function that will solve the circuit
 for all voltages and injected currents given frequency, inputs
 and circuit parameters. 
 
-The returned value is a vector of the n output voltages and n injected
-currents.
+The function that is returned takes the frequency, inputs and
+parameter values and returns a vector of the n output voltages and n
+injected currents.
+
 """
 function raw(nl::Netlist)
     # the system of equations is allocated once, solved many times
