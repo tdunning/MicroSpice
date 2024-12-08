@@ -7,13 +7,13 @@ evalCircuit(nl, frequencies, penalties) = parameters -> quality(nl, parameters, 
 """
 Finds a worst case value of performance over variation of component values
 """
-function quality(nl, parameters, frequencies, penalties)
-    trials = []
-    for i in 1:100
-        p = parameters .* (1 .+ 0.05 *randn(size(parameters)))
-        append!(trials, q0(nl, p, frequencies, penalties))
+function quality(sim, parameters, frequencies, penalties)
+    let n = 100
+        maximum(i -> begin
+                    p = parameters .* (1 .+ 0.05 *randn(size(parameters)))
+                    q0(sim, p, frequencies, penalties)
+                end, 1:n)
     end
-    return maximum(trials)
 end
 
 """
@@ -22,10 +22,8 @@ the net attenuation at frequencies of interest adjusted by penalties.
 There is a secondary goal the encourages low attenuation at the primary
 frequency.
 """
-function q0(nl, parameters, frequencies, penalties)
-    fx = MicroSpice.solve(nl, parameters)
-    model = f->20*log10(abs(only(fx(f, [2,0]))))
-    response = model.(frequencies)
+function q0(sim, parameters, frequencies, penalties)
+    response = [20 * log10(abs(only(sim(f, [2,0], parameters)))) for f in frequencies]
     net =  (response[2:end] .- response[1]) .+ penalties
     return maximum(net) - response[1]
 end
@@ -86,7 +84,7 @@ the fraction of survivors is λ.
 
 The parameters are:
 
-q - the quality function that translates parameter values into performance estimate (lower is better). 
+q - a function that returns a quality function 
 ix - an array of indexes into the parameterSets that define the starting point
 parameterSets - an array of arrays of component values. This translates ix into what q wants 
 
@@ -105,11 +103,14 @@ function metaClimb(q, ix, parameterSets; pop=100, λ=0.2, μ=0.8, rate=1, gens=3
     end
     history = []
 
+    # pre-allocate simulation functions to allow multi-threading
+    sims = [q() for i in 1:Threads.nthreads()]
+
     # fill up the population by mutating the intial state
     population = Vector{ClimbState}()
-    c0 = ClimbState(ix, ix, q(ix), rate)
+    c0 = ClimbState(ix, ix, 0.0, rate)
     while length(population) < pop
-        push!(population, mutate(c0::ClimbState, q, parameterSets, μ))
+        push!(population, mutate(c0::ClimbState, sims[1], parameterSets, μ))
     end
     
     survivors = Int(floor(λ * pop) + 1)
@@ -123,7 +124,7 @@ function metaClimb(q, ix, parameterSets; pop=100, λ=0.2, μ=0.8, rate=1, gens=3
         push!(history, population[1:10])
         # apart from the survivors, fill out with new mutants
         Threads.@threads for i in survivors+1:pop
-            c = mutate(population[j], q, parameterSets, μ)
+            c = mutate(population[j], sims[Threads.threadid()], parameterSets, μ)
             population[i] = c
             j = j % survivors + 1
         end

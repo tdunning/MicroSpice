@@ -44,8 +44,8 @@ Adds an additional plot
 function statusPlot!(nl, parameters, frequencies, penalties)
     expRange(low, high, n) = exp.(LinRange(log(low), log(high), n))
 
-    fx = MicroSpice.solve(nl, parameters)
-    model = f->20*log10(abs(only(fx(f, [2,0]))))
+    fx = MicroSpice.solve(nl)
+    model = f->20*log10(abs(only(fx(f, [2,0], parameters))))
     
     top = model(frequencies[1]) + 3
     plot!(f -> model(f * 1e6), expRange(10,300,100), label="Evolved")

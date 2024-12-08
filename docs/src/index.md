@@ -69,7 +69,7 @@ nl = MicroSpice.Netlist("L1 in  out 100nH\nR1 out gnd 50Ω\nC1 out gnd 100nF\n",
                                      [], [:in, :gnd], ["out"])
 s = MicroSpice.solve(nl)
 decibel(x) = 20 * log10(abs(x))
-[decibel(only(s(f, [1, 0]))) for f in [1.4e6, 1.5e6, 1.62e6, 1.8e6]]
+[decibel(only(s(f, [1, 0], []))) for f in [1.4e6, 1.5e6, 1.62e6, 1.8e6]]
 # output
 4-element Vector{Float64}:
  12.883077832402897
@@ -100,7 +100,7 @@ C1 out gnd $C
 """, ["L", "C"], [:in, :gnd], ["out"])
 decibel(x) = 20 * log10(abs(x))
 [ 
-decibel(only(MicroSpice.solve(nl, params)(f, [1, 0])))
+decibel(only(MicroSpice.solve(nl)(f, [1, 0], params)))
 for f in  [1.0e6, 1.2e6, 1.4e6, 1.62e6, 1.8e6, 2.0e6],
 params in  [[100e-9, 100e-9], [200e-9, 50e-9], [120e-9, 100e-9]]
 ]

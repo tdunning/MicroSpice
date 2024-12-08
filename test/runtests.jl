@@ -66,9 +66,9 @@ end
         end
 
         @test nl.links[(2,3)] ≈ MicroSpice.Link(0.02, 1.0e-7, 0)
-        s = MicroSpice.solve(nl, [])
-        s(1e6, [1, 0])
-        y = [20*log10(abs(only(s(f, [1, 0])))) for f in 1.2e6:0.1e6:1.8e6]
+        s = MicroSpice.solve(nl)
+        s(1e6, [1, 0], [])
+        y = [20*log10(abs(only(s(f, [1, 0], [])))) for f in 1.2e6:0.1e6:1.8e6]
         @test y ≈ [7.294866, 9.545497, 12.883077, 18.914298, 32.859821, 16.921493, 11.056348] atol=1e-5
 #        x = MicroSpice.inputImpedance(nl)
 #        @test abs.(x.([1.2e6, 1.5e6])) ≈ [0.5724569, 0.1202032] atol=1e-6
@@ -83,15 +83,15 @@ end
 #        c = MicroSpice.ComplexCircuit(nl, 1.5e6, [100e-9])
 
         # without parameters, the sim is doomed but the problem only shows at bind-time
-        s = MicroSpice.solve(nl, [])
-        @test_throws BoundsError s(1e6, [1, 0])
+        s = MicroSpice.solve(nl)
+        @test_throws BoundsError s(1e6, [1, 0], [])
 
-        s = MicroSpice.solve(nl, [100e-9])
-        y = [20*log10(abs(only(s(f, [1, 0])))) for f in 1.2e6:0.1e6:1.8e6]
+        s = MicroSpice.solve(nl)
+        y = [20*log10(abs(only(s(f, [1, 0], [100e-9])))) for f in 1.2e6:0.1e6:1.8e6]
         @test y ≈ [7.294866, 9.545497, 12.883077, 18.914298, 32.859821, 16.921493, 11.056348] atol=1e-5
 
-        s = MicroSpice.solve(nl, [120e-9])
-        y = [20*log10(abs(only(s(f, [1, 0])))) for f in 1.2e6:0.1e6:1.8e6]
+        s = MicroSpice.solve(nl)
+        y = [20*log10(abs(only(s(f, [1, 0], [120e-9])))) for f in 1.2e6:0.1e6:1.8e6]
         @test y ≈ [9.942511, 13.964684, 22.554476, 23.136562, 13.386021, 8.635949, 5.423041] atol=1e-5
     end
 end
@@ -104,8 +104,8 @@ end
        C2 out gnd 225p
        R2 out gnd 50
        """, [], [:in, :gnd], [:out])
-        fz=MicroSpice.solve(nx)
-        @test 20*log10(abs(only(fz(50e6, [2,0])))) ≈ -10.101 atol=0.001
+        fz = MicroSpice.solve(nx)
+        @test 20*log10(abs(only(fz(50e6, [2,0], [])))) ≈ -10.101 atol=0.001
     end
 
     # fancier pi filter plus extra zero
@@ -122,9 +122,35 @@ end
         design = [260e-9,  243e-12,  
                   225e-12,  17e-9,
                   40]
-        z = MicroSpice.solve(nl, design)
-        out = z.(ref[!,:freq], Ref([2, 0]))
+        z = MicroSpice.solve(nl)
+        out = z.(ref[!,:freq], Ref([2, 0]), Ref(design))
         clean = only.(out[:,1])
         @test maximum(abs.((ref[!,:real] .- im * ref[!,:imag]) .- clean)) ≈ 0 atol = 2e-4
     end
 end
+
+@testset "Check input impedance computation" begin
+    let nl = MicroSpice.Netlist("R1 v gnd 123", [], [:v, :gnd], [])
+        @test MicroSpice.inputImpedance(nl, [])(1) ≈ 123
+    end
+    # this circuit is a cube
+    cube = raw"""
+    R1 v N001 $R
+    R2 N001 N004 $R
+    R3 N001 N005 $R
+    R4 N004 gnd $R
+    R5 v N002 $R
+    R6 N002 N005 $R
+    R7 N002 N006 $R
+    R8 N005 gnd $R
+    R9 N006 gnd $R
+    R10 v N003 $R
+    R11 N003 N006 $R
+    R12 N003 N004 $R
+    """
+    let nl = MicroSpice.Netlist(cube, [:R], [:v, :gnd], [])
+        @test MicroSpice.inputImpedance(nl, [1.0])(1) ≈ 5/6
+        @test MicroSpice.inputImpedance(nl, [10.0])(100) ≈ 50/6
+    end
+end
+

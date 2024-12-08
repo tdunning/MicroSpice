@@ -11,7 +11,10 @@ f = 28.126100e6
 # harmonic suppression for 55% duty cycle square wave
 r0 = [-19,-14.5,-24,-27]
 
-q = evalCircuit(nl6, f:f:5f, r0)
+function q()
+    sim = MicroSpice.solve(nl6)
+    params -> quality(sim, params, f:f:5f, r0)
+end
 
 start = rand.(eachindex.([inductors(false), caps(), caps(), caps()]))
 

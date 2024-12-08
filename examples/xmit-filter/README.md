@@ -142,7 +142,7 @@ variations in the component values matching the specifications on the
 components being used (5% precision for both inductors and
 capacitors). Overall, each simulation requires about 900,000
 simulation runs representing nearly 10,000 unique design and takes
-just under 30 seconds on a MacBook Pro. Even with this large number of
+just under 20 seconds on a MacBook Pro. Even with this large number of
 simulations, the evolutionary algorithm only explores about 1% of the
 possible designs and thus is much faster than an exhaustive search
 would be even though both come to the same result.

@@ -56,7 +56,7 @@ this circuit with this code:
 nl = MicroSpice.Netlist("L1 in  out 100nH\nR1 out gnd 50Ω\nC1 out gnd 100nF\n", [], [:in, :gnd], [:out])
 s = MicroSpice.solve(nl)
 decibel(x) = 20 * log10(abs(x))
-[decibel(only(s(f, [1, 0]))) for f in [1.4e6, 1.5e6, 1.62e6, 1.8e6]]
+[decibel(only(s(f, [1, 0], []))) for f in [1.4e6, 1.5e6, 1.62e6, 1.8e6]]
 # output
 4-element Vector{Float64}:
  12.883077832402897

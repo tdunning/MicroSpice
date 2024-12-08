@@ -177,7 +177,7 @@ is solved for a specific frequency and vector of input voltages.
 nl = MicroSpice.Netlist("L1 in  out 100n\nR1 out gnd 50\nC1 out gnd 100n\n", [], [:in, :gnd], [:out])
 s = MicroSpice.solve(nl)
 decibel(x) = 20 * log10(abs(x))
-[decibel(only(s(f, [1, 0]))) for f in [1.4e6, 1.5e6, 1.62e6, 1.8e6]]
+[decibel(only(s(f, [1, 0], []))) for f in [1.4e6, 1.5e6, 1.62e6, 1.8e6]]
 # output
 4-element Vector{Float64}:
  12.883077832402897
@@ -257,19 +257,23 @@ function raw(nl::Netlist)
     (frequency, inputs, parameters) -> begin
         # fill in the admittances
         let ω = 2π * frequency * -1im
-            for (coords, link) in nl.links
-                r, l, c = resolve.([link.r, link.l, link.c], Ref(parameters))
+            for i in 1:n
+                eq[i, i] = 0
+            end
+            for ((i,j), link) in nl.links
+                r = resolve(link.r, parameters)
+                l = resolve(link.l, parameters)
+                c = resolve(link.c, parameters)
                 z = r + ω * c + l / ω
                 # fill lower triangle
-                eq[coords...] = z
+                eq[i, j] = z
                 # fill upper triangle by reversing each (i,j) pair
-                eq[reverse(coords)...] = z
-            end
+                eq[j, i] = z
 
-            # set the diagonal values to the negative sum of the other values
-            i = diagind(eq)[1:n]
-            eq[i] .= 0
-            eq[i] = -sum(eq[1:n, 1:n], dims=1)
+                # set the diagonal values to the negative sum of the other values
+                eq[i, i] -= z
+                eq[j, j] -= z
+            end
         end
 
         # and set the inputs
@@ -286,9 +290,9 @@ circuit, `solve` returns a function that simulates a circuit. The
 arguments of the returned function are frequency and the values of the
 circuit parameters. The returned value is a vector of the output voltages.
 """
-function solve(nl::Netlist, parameters::AbstractVector=[])
+function solve(nl::Netlist)
     s = raw(nl)
-    (frequency, inputs) -> begin
+    (frequency, inputs, parameters) -> begin
         vi = s(frequency, inputs, parameters)
         return getindex.(Ref(vi), nl.outputs)
     end
@@ -300,10 +304,10 @@ of a circuit between the two inputs. It is assumed that there are two
 inputs, but ignores the outputs.
 """
 function inputImpedance(nl::Netlist, parameters::AbstractVector=[])
-    s = solve(nl, parameters)
+    s = raw(nl)
     frequency -> begin
-        vi = s(frequency, [1, 0])
-        return 1/vi[nl.n+1]
+        vi = s(frequency, [1, 0], parameters)
+        return -1 / vi[nl.n + nl.inputs[1]]
     end
 end
 
@@ -313,9 +317,9 @@ ciruit with an input, a reference voltage and an output at a
 particular frequency.
 """
 function transfer(nl::Netlist, parameters::AbstractVector=[])
-    s = solve(nl, parameters)
+    s = solve(nl)
     frequency -> begin
-        return only(s(frequency, [1,0]))
+        return only(s(frequency, [1, 0], parameters))
     end
 end
 
