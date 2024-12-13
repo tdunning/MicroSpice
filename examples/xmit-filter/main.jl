@@ -16,18 +16,19 @@ function q()
     params -> quality(sim, params, f:f:5f, r0)
 end
 
-start = rand.(eachindex.([inductors(false), caps(), caps(), caps()]))
+components = [inductors(true), caps(), caps(), caps()]
+start = rand.(eachindex.(components))
 
-h,best = metaClimb(q, start, [inductors(false), caps(), caps(), caps()], gens=100, rate=1, λ=0.1, pop=100, μ=0.9, info=10)
+h,best = metaClimb(q, start, components, gens=100, rate=1, λ=0.1, pop=100, μ=0.9, info=10)
 
 # check out the 5 best performers at the end
 best[1:5]
 
 # plot best performers over optimization process
-statusPlot(nl6, getindex.([inductors(false), caps(), caps(), caps()], h[2][1].ix), f:f:5f, r0)
-statusPlot!(nl6, getindex.([inductors(false), caps(), caps(), caps()], h[10][1].ix), f:f:5f, r0)
-statusPlot!(nl6, getindex.([inductors(false), caps(), caps(), caps()], h[20][1].ix), f:f:5f, r0)
-statusPlot!(nl6, getindex.([inductors(false), caps(), caps(), caps()], h[50][1].ix), f:f:5f, r0)
+statusPlot(nl6, getindex.(components, h[2][1].ix), f:f:5f, r0)
+statusPlot!(nl6, getindex.(components, h[10][1].ix), f:f:5f, r0)
+statusPlot!(nl6, getindex.(components, h[20][1].ix), f:f:5f, r0)
+statusPlot!(nl6, getindex.(components, h[50][1].ix), f:f:5f, r0)
 gui()
 
 # plot the size of the mutation steps

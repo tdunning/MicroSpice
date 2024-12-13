@@ -16,7 +16,7 @@ inductors(includeHandMade=false) = sort(collect(Set([
             # T37-6 toroid with 2 to 12 turns
             1e-9 * [MicroSpice.toroid("T37-6", t) for t in 2:12]...,
             # T25-6 toroid with 2 to 9 turns
-            1e-9 * [MicroSpice.toroid("T25-6", t) for t in 2:9]...,
+            1e-9 * [MicroSpice.toroid("T25-6", t) for t in 2:12]...,
             # wound inductors on chopstick assuming last turn only goes halfway
             1e-9 * [MicroSpice.coil(n+0.5, 5, 0.6*n) for n in 3:12]...
                 ]
@@ -34,4 +34,11 @@ caps() = sort(collect(Set(
     3.9e-12, 4.7e-12, 5.6e-12, 6.8e-12, 8.2e-12, 10e-12
 ])))
 
-
+resistors() = sort(collect(Set(
+    [
+        # SMD resistors
+        1, 1.2, 1.5, 2, 2.7, 3.3, 4.3, 5.1, 6.8, 8.2, 10, 12, 15, 20, 27,
+        33, 43, 51, 68, 82, 100, 120, 150, 200, 270, 330, 40, 510, 680,
+        820, 1e3, 1.2e3, 1.5e3, 2e3, 2.7e3, 3.3e3, 4.3e3, 5.1e3, 6.8e3,
+        8.2e3, 10e3
+    ])))

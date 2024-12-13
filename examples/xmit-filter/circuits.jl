@@ -81,12 +81,12 @@ Inverse Chebyshev 3rd order formed as π with series element
 formed by parallel LC element
 """
 nl6 = MicroSpice.Netlist(raw"""
-R1 in N001 100
-L1 N001 out $L1
-C1 N001 gnd $C1
-C2 N001 out $C2
-C3 out gnd $C3
-R2 out gnd 200
+R1 in N001    85
+L1 N001 out  $L1
+C1 N001 gnd  $C1
+C2 N001 out  $C2
+C3 out gnd   $C3
+R2 out gnd   50
 """, [:L1, :C1, :C2, :C3], [:in, :gnd], [:out])
 c6 = [500e-9, 100e-12, 10e-12, 100e-12]
 

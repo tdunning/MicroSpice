@@ -37,12 +37,15 @@ can be injected into any nodes that are not forced to a particular voltage.
 The result of the voltages and all of the node-to-node currents are then
 computed.
 
-In normal practice, the internals of this conversion are hidden from view.
-All you need to do is provide a `Netlist` and a list of inputs and outputs
-and you get a simulation function that takes a frequency, a vector of
-voltages and returns a vector of output voltages. You can call that
-simulation function repeatedly for different frequencies or different
-inputs.
+In normal practice, the internals of this conversion are hidden from
+view.  All you need to do is provide a `Netlist` and and lists of
+bindings for parameter values, inputs and outputs and you get a
+simulation function that takes a frequency, a vector of voltages and a
+vector of circuit parameters. This function returns a vector of output
+voltages. You can call that simulation function repeatedly for
+different frequencies or different inputs. Simulation functions are
+not thread safe because they retain and re-use the matrices for
+solving the circuit.
 
 As an example, here is a simple RLC circuit in Spice netlist format
 
@@ -228,14 +231,15 @@ nl = MicroSpice.Netlist(raw"""
 L1 in  out $L
 R1 out gnd 50Ω
 C1 out gnd $C
-""", ["L", "C"], [:in, :gnd], [:out])
+""", [:L, :C], [:in, :gnd], [:out])
 fx = 0.5e6:0.005e6:2.5e6
+sim = MicroSpice.solve(nl)
 nominal = [
-	decibel(only(MicroSpice.solve(nl, [100e-9, 100e-9])(f, [1, 0])))
+	decibel(only(sim(f, [1, 0], [100e-9, 100e-9])))
 	for f in fx
 	]
 r = [ 
-       decibel(only(MicroSpice.solve(nl, [:in, :gnd], ["out"], Vector(params))(f, [1, 0])))
+       decibel(only(sim(f, [1, 0], Vector(params))))
        for f in fx,
        params in  eachrow((0.95 .+ 0.1 * rand(50,2)) .* [100e-9, 100e-9]')
        ]

@@ -25,7 +25,7 @@ frequency.
 function q0(sim, parameters, frequencies, penalties)
     response = [20 * log10(abs(only(sim(f, [2,0], parameters)))) for f in frequencies]
     net =  (response[2:end] .- response[1]) .+ penalties
-    return maximum(net) - response[1]
+    return maximum(net) - response[1]/2
 end
 
 """
@@ -116,7 +116,7 @@ function metaClimb(q, ix, parameterSets; pop=100, λ=0.2, μ=0.8, rate=1, gens=3
     survivors = Int(floor(λ * pop) + 1)
     j = 1
     for g in 1:gens
-        if g%info == 0
+        if g < info || g%info == 0
             @info "step" g population[1] population[2]
         end
         # find the best examples
