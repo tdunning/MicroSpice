@@ -374,19 +374,22 @@ function toroid(core::AbstractString, turns)
     if !(core in keys(toroid_parameters))
         error("Unknown toroid: $core")
     end
-    toroid_parameters[core] * turns^2
+    p = toroid_parameters[core]
+    p[1] * turns^2 + p[2]
 end
 
-# Toroid parameters after https://toroids.info (see https://kitsandparts.com/
-# for compatible parts)
+# Toroid parameters after
+# https://www.rf-microwave.com/resources/products_attachments/6128fe5dad127.pdf
+# But see https://gist.github.com/tdunning/cb968ac41c541ed09b56e7482cd00e7b for info on T25-6. Other cores
+# probably have similar issues.
 toroid_parameters = Dict(
-    "T25-2"=> 3.4, "T25-6"=> 2.7, "T30-2"=> 4.3, "T30-6"=> 3.6,
-    "T30-10"=> 2.5, "T37-0"=> 0.49, "T37-1"=> 8, "T37-2"=> 4,
-    "T37-6"=> 3, "T37-7"=> 3.2, "T37-10"=> 2.5, "T37-17"=> 1.5,
-    "T44-2"=> 5.2, "T44-6"=> 4.2, "T50-1"=> 10, "T50-2"=> 4.9,
-    "T50-3"=> 17.5, "T50-6"=> 4, "T50-7"=> 4.3, "T50-10"=> 3.1,
-    "T50-17"=> 1.8, "T68-1"=> 11.5, "T68-2"=> 5.7, "T68-6"=> 4.7,
-    "T68-7"=> 5.2, "T68-10"=> 3.2)
-
+    "T25-2"=> (3.4, 0), "T25-6"=> (3.26, 53), "T30-2"=> (4.3, 0), "T30-6"=> (3.6, 0),
+    "T30-10"=> (2.5, 0), "T37-0"=> (0.49, 0), "T37-1"=> (8, 0), "T37-2"=> (4, 0),
+    "T37-6"=> (3, 0), "T37-7"=> (3.2, 0), "T37-10"=> (2.5, 0), "T37-17"=> (1.5, 0),
+    "T44-2"=> (5.2, 0), "T44-6"=> (4.2, 0), "T50-1"=> (10, 0), "T50-2"=> (4.9, 0),
+    "T50-3"=> (17.5, 0), "T50-6"=> (4, 0), "T50-7"=> (4.3, 0), "T50-10"=> (3.1, 0),
+    "T50-17"=> (1.8, 0), "T68-1"=> (11.5, 0), "T68-2"=> (5.7, 0), "T68-6"=> (4.7, 0),
+    "T68-7"=> (5.2, 0), "T68-10"=> (3.2, 0)
+)
 
 end
