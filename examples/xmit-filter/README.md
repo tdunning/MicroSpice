@@ -98,9 +98,9 @@ factors, hence the name meta-mutation.
 In practice, what meta-mutation does is that the system takes big
 jumps when the solution is far from optimal and takes much smaller
 steps as it approaches the optimal answer. You can see this happening
-in the [following graph](./images/meta-evolution.png). In the first
-part, up roughly generation 50, the algorithm is learning that it
-needs to take bigger steps. After that point, it decreases the
+in this [graph](./images/meta-evolution.png). In the early
+part, up to roughly generation 5, the algorithm is learning that it
+needs to take bigger steps. After that point, it rapidly decreases the
 mutation scale as it homes in on a good solution.
 
 # Encoding the junk box
