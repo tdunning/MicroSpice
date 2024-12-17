@@ -125,7 +125,7 @@ component values for inductors and capacitors so we don't have to
 encode resistors in the same way, but for other circuits this is
 likely to be important.
 
-# Results
+# Optimization Results
 
 The circuit being optimized is shown in the following schematic
 
@@ -194,4 +194,39 @@ built with parts on hand. On the other hand, it achieves this
 performance at the cost of roughly 7dB of ripple in the passband which
 would make the evolved design unusable in more general applications.
 
+# Real World Test
+
+To validate that these results make sense in the real world, I 
+fabricated the filter on a surface mount breadboard and tested the
+filter response. Aside from the inductor, the circuit was relatively
+free of parasitic effects up to about 200MHz. The inductor had a
+higher than intended value due to the relatively significant loop
+area due to the way that the inductor is connected to the circuit.
+These parasitics are characterized in detail 
+[this note](https://gist.github.com/tdunning/cb968ac41c541ed09b56e7482cd00e7b)
+
+The filter as built is shown on the left in this picture. And the 
+frequency response of the filter is shown on the right.
+
+<img width="80%" alt="image" src="https://github.com/user-attachments/assets/0b1e8e99-fad9-482f-b8e3-36fdbaabb3e3" />
+
+As a size reference the inductor is wound on a T250-6 core so it is 
+about 6-7 mm in diameter. The capacitors are surface mounted devices
+on the back side of the board. The two most important practical aspects 
+about building this circuit are to maintain a tight connection between
+the connector grounds through multiple parallel paths and to measure 
+and compensate for the parasitic inductance and actual permeance of
+the core. 
+
+The response curve does not have as much ripple in the passband as the original 
+design, but the difference between the response at the fundamental and the
+second (~ -30dBc) and third harmonic (~ -40dBc) is certainly good enough
+even though not as good as in the theoretical design. 
+The final result when this filter incorporated in 
+a WSPR beacon should roughly 50dB of suppression of these harmonics which is
+an impressive result with just a single inductor filter. Based on simulations,
+I suspect that the lower performance of the "as-built" circuit is due to 
+non-ideal performance of the inductive core which results in moderate
+Q of about 50-100. In a next round of design, this and other
+parasitic effects could be included in the evolutionary design.
 
