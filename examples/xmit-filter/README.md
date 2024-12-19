@@ -302,8 +302,7 @@ and is easier to build due to being customized to exactly the parts already
 in stock. The required software is not complex, either. The setup of the 
 optimizer is about a dozen lines of code including the circuit definition
 and the parts inventory is about three dozen lines (your parts box is probably
-bigger than mine). The process doesn't take a high-performance computer, either.
-It takes about 20 seconds on a laptop to run the optimization. It's all 
-open source, too, so you can add code to implement special capabilities 
-that you need.
+bigger than mine).  The entire optimization takes about 20 seconds on a laptop 
+to run the optimization. Since the entire system is open source you can add 
+code to implement special capabilities that you need.
 
