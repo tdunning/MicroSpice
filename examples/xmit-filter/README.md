@@ -30,14 +30,13 @@ the Si5351 to generate a variable frequency is that we need to use a
 low pass filter to remove these harmonics. But that we want to
 suppress different harmonics by different amounts because they will
 be, to differing extents already suppressed. For instance, if we look
-at the
-[spectrum of a 55% duty cycle waveform](https://gist.github.com/tdunning/e551ae973422609f031c1bdca39ff5b4)
+at the spectrum of a 55% duty cycle waveform
 with 1ns rise and fall times, we see that the 3rd and 5th harmonics
 are at roughly -10dBc and -15dBc as was the case with the ideal square
 wave, but the 2nd and 4th harmonics are now non-negligible at just
 above -20dBc (with the 4th a few dB _higher_ than all but the 3rd).
 
-<img width="400" alt="A plot of the spectrum of a 55% duty cycle square wave with 1ns rise and fall times" src="https://gist.github.com/user-attachments/assets/41428c2b-e634-4fb3-b912-e1b0a97428cd">
+<img width="60%" alt="A plot of the spectrum of a 55% duty cycle square wave with 1ns rise and fall times" src="https://github.com/user-attachments/assets/5d3644a2-5e76-4778-b04d-23188239033d">
 
 In addition, the frequency band for WSPR transmissions is very small
 (just 200Hz). That means that we can design our system for a single
@@ -69,6 +68,27 @@ harmonics so those aren't part of the figure of merit. For a single
 set of circuit component values, we will simulate the circuit a number
 of times to estimate the expected worst-case performance.
 
+# Circuit Simulations as Callable Functions
+
+The most important contributor to the software side of this project
+is the ability that `MicroSpice` brings to have a circuit simulation
+as a high-performance callable function. Having a callable simulation
+is fundamentally different from having a human-usable simulator because
+it allows us to call that simulator millions of times in the process
+of optimizing a circuit for non-standard design requirements in the 
+context of a limited parts menu and realistically variable component
+values. This pattern of using a simulator as part of a much larger 
+optimization system is a big trend in high-end problems like the 
+design of fusion reactors, but it applies to small problems as well.
+
+With `MicroSpice`, you can convert a Spice netlist into a function
+that will compute the response of the circuit for given inputs and
+parameter values. A single simulation takes a few microseconds and
+multiple simulations can be run on different cores.
+
+With this capability, we can use advanced optimizers such as meta-
+evolution to derive an interesting circuit design.
+
 # Meta-evolution
 
 The optimization algorithm we used for finding an optimum circuit is
@@ -85,23 +105,22 @@ solution.
 
 The particular meta-evolutionary algorithm we are using here is called
 "recorded step" evolution. In this system, each potential solution is
-expressed as a vector and new candidate solutions are created by
-adding scalar noise to each component of a vector as well as adding a
-step in the same direction as the previous step that led us to the
-current solution. The new value for the omni-directional mutation
-scale is determined by sampling from the omni mutation itself. The new
-directional mutation is obtained by taking the difference between the
-previous and current position. This means that the factors that
-control the mutation scale also control the new values of the same
-factors, hence the name meta-mutation.
+expressed as a vector of values. New candidate solutions are created by
+adding a randomized value to that vector. Recorded step evolution
+maintains a history of recent mutations so that it can retain good
+solutions as well as good momentum towards good solutions.
+The way that this system evolves good solutions and good mutation rates
+in the same process is why it is called meta-mutation.
 
 In practice, what meta-mutation does is that the system takes big
 jumps when the solution is far from optimal and takes much smaller
 steps as it approaches the optimal answer. You can see this happening
-in this [graph](./images/meta-evolution.png). In the early
+in the graph below. In the early
 part, up to roughly generation 5, the algorithm is learning that it
 needs to take bigger steps. After that point, it rapidly decreases the
 mutation scale as it homes in on a good solution.
+
+<img width=60% src="./images/meta-evolution.png">
 
 # Encoding the junk box
 
@@ -122,8 +141,8 @@ this sort of scale-invariant encoding can work very well.
 
 The optimization of the filter we are designing only involves finding
 component values for inductors and capacitors so we don't have to
-encode resistors in the same way, but for other circuits this is
-likely to be important.
+encode resistors in the same way, but for other circuits that would
+likely be important.
 
 # Optimization Results
 
@@ -131,33 +150,39 @@ The circuit being optimized is shown in the following schematic
 
 <img width="400" alt="The schematic of an 3rd order LC filter" src="./images/schematic.png">
 
-This circuit is based on the circuit of an inverse Chebyshev filter.
+This circuit is loosely based on an inverse Chebyshev filter. The various
+component values for inductors and capacitors that we will be optimizing
+are shown with values that start with `$` while component values that are 
+fixed like the source and load impedance are shown as numbers. 
 
 The meta-evolutionary optimizer was run for 100 generations each with
 a population of 100 potential solutions. At each generation 10% of the
 population was retained and 90 new candidate solutions were generated
 by directed mutation. Each candidate was scored by simulating the
-response of the filter for 100 variations of the circuit with small
-variations in the component values matching the specifications on the
-components being used (5% precision for both inductors and
-capacitors). Overall, each simulation requires about 900,000
-simulation runs representing nearly 10,000 unique design and takes
-just under 20 seconds on a MacBook Pro. Even with this large number of
-simulations, the evolutionary algorithm only explores about 1% of the
-possible designs and thus is much faster than an exhaustive search
-would be even though both come to the same result.
+response of the filter for 100 small
+variations in the component values (5% precision for both inductors and
+capacitors). Overall, each optimization run requires about 900,000
+simulations representing nearly 10,000 unique designs. The entire
+process takes just under 20 seconds on a MacBook Pro. Even with this 
+large number of simulations, the evolutionary algorithm only explores 
+about 1% of the possible designs and thus is much faster than an 
+exhaustive search would be. The nice thing about the evolutionary search
+is that for this problem, the result is the same as produced by an
+evolutionary search.
 
-A
-[visualization of a typical optimization run](./images/evolution.gif)
+A visualization of a typical optimization run
 was recorded by plotting the response for the best 10 circuits for
-each generation into a multi-frame animated GIF image. In this
-sequence, initial solutions are quite poor but rapidly improve. A
-plateau is eventually reached, but once a solution is found with a
-minimum response between the second and third harmonic an optimal
-solution is found quickly.
+each generation into a multi-frame animated GIF image and is shown 
+below. In this sequence, initial solutions are quite poor but 
+rapidly improve. A plateau is eventually reached, but once a 
+solution is found with a minimum response between the second and 
+third harmonic an optimal solution is found quickly.
+
+<img width=70% src="./images/evolution.gif">
 
 To compare the result obtained using the evolutionary algorithms with
-conventional approaches to filter design, I used the [LC filter design](https://markimicrowave.com/technical-resources/tools/lc-filter-design-tool/) web application
+conventional approaches to filter design, I used the 
+[LC filter design](https://markimicrowave.com/technical-resources/tools/lc-filter-design-tool/) web application
 from Marki Microwave to design an inverse Chebyshev filter with a stop
 band attenuation of 40dB and a cutoff frequency of 30MHz. Component
 values were allowed to be exact rather than standard values. The
@@ -168,7 +193,7 @@ following table.
 
 | Component | Evolutionary | Designed |
 | --------- | ---------   | ------- |
-| L1 | 330nH | 768.2nH |
+| L1 | 270nH | 768.2nH |
 | C1 | 180pF | 27.86pF |
 | C2 | 15pF | 3.03pF |
 | C3 | 150pF | 83.9pF |
@@ -182,24 +207,32 @@ src="./images/response.png">
 The striking result here is that the evolved circuit makes use of the
 design freedom in the problem by using a large amount of ripple in the
 pass-band combined with careful positioning of the response zero to
-get very steep roll-off before the second harmonic. The impact of this
-is that the evolved circuit is able to out-perform the standard design
+get very steep roll-off before the second harmonic. Moreover, the 
+response zero is positioned closer to the third harmonic than to the
+second harmonic because the third harmonic requires more suppression.
+The impact of this non-standard design is that the evolved circuit 
+out-performs the standard design
 by roughly 18dB at the second harmonic. This means that the second
 harmonic is lower than -50dBc relative to the fundamental for the
 evolved filter and the third harmonic is even lower.
 
 This performance of the evolved filter is roughly on par with a 5th
-order standard design that uses exact component values but it can be
+order standard design that uses exact component values. The evolved 
+circuit not only performs much better, but it can be
 built with parts on hand. On the other hand, it achieves this
 performance at the cost of roughly 7dB of ripple in the passband which
 would make the evolved design unusable in more general applications.
+Since we aren't building a general-purpose filter, this isn't a 
+problem. The general-purpose design also uses components such as 
+the 3pF that invite severe problems with parasitic effects because
+of their extremely small values.
 
 # Real World Test
 
 To validate that these results make sense in the real world, I 
-fabricated the filter on a surface mount breadboard and tested the
-filter response. Aside from the inductor, the circuit was relatively
-free of parasitic effects up to about 200MHz. The inductor had a
+fabricated the filter design shown above on a surface mount breadboard 
+and tested the filter response. Aside from the inductor, the circuit was 
+relatively free of parasitic effects up to about 200MHz. The inductor had a
 higher than intended value due to the relatively significant loop
 area due to the way that the inductor is connected to the circuit.
 These parasitics are characterized in detail 
@@ -208,25 +241,69 @@ These parasitics are characterized in detail
 The filter as built is shown on the left in this picture. And the 
 frequency response of the filter is shown on the right.
 
-<img width="80%" alt="image" src="https://github.com/user-attachments/assets/0b1e8e99-fad9-482f-b8e3-36fdbaabb3e3" />
+<img width="80%" alt="image" src="https://github.com/user-attachments/assets/c844e52d-cab0-4ef2-a318-8d21efeb96f1" />
 
 As a size reference the inductor is wound on a T250-6 core so it is 
 about 6-7 mm in diameter. The capacitors are surface mounted devices
 on the back side of the board. The two most important practical aspects 
 about building this circuit are to maintain a tight connection between
 the connector grounds through multiple parallel paths and to measure 
-and compensate for the parasitic inductance and actual permeance of
-the core. 
+and compensate for the parasitic inductance in the coil and connecting 
+circuit and actual permeance of the core so that the value of the
+inductor is what we expect. 
 
 The response curve does not have as much ripple in the passband as the original 
 design, but the difference between the response at the fundamental and the
-second (~ -30dBc) and third harmonic (~ -40dBc) is certainly good enough
-even though not as good as in the theoretical design. 
+second (~ -30dBc) and third harmonic (~ -45dBc) is certainly good enough
+even though not quite as good as in the theoretical design. 
 The final result when this filter incorporated in 
 a WSPR beacon should roughly 50dB of suppression of these harmonics which is
 an impressive result with just a single inductor filter. Based on simulations,
 I suspect that the lower performance of the "as-built" circuit is due to 
 non-ideal performance of the inductive core which results in moderate
-Q of about 50-100. In a next round of design, this and other
-parasitic effects could be included in the evolutionary design.
+Q of about 50-100 and due to a small amount of parasitic inductance
+in the ground path between input and output. In a next round of design, 
+this and other parasitic effects could be included in the evolutionary design.
+
+Looking at a wider frequency range shows how some of the parasitics in the
+circuit cause some misbehavior at much higher frequencies. These issues
+were seen in a first prototype of this filter and even caused the 13th 
+harmonic at roughly 365MHz to have insufficient suppression. This version 
+of the filter has an additional RC filter with a cutoff at about 37MHz on 
+the output so that very high harmonics have additional suppression. In 
+this build of the filter, the response is -40dB or better out to 600MHz.
+
+<img align="right" width="45%" alt="image" src="https://github.com/user-attachments/assets/aa48402e-9490-48a2-ba41-fd7c0de78dfe">
+
+The real test of all of this comes when the filter is attached to a signal 
+source. I used an Si5351 breakout board from AdaFruit initialized by a TinyGo
+program running on a Raspberry Pico to generate a square wave at 28126.10KHz
+which is in the 10m WSPR band. The spectrum was measured by a TinySA with 
+40dB of input attenuation to protect the front-end. The spectrum produced by the 
+Si5351 with and without the filter is shown below.
+
+<img width="80%" alt="image" src="https://github.com/user-attachments/assets/2dc350b3-b5c8-4251-9e8c-634106c4cf5a" />
+
+The original spectrum is shown in blue while the filtered output is shown in 
+front in orange. The even harmonics are suppressed below the noise floor and 
+the largest remaining odd harmonic is about 55dB below the carrier level which
+is considerably better than the original -40dBc goal. The 
+roughly 5dB of insertion loss is actually useful to avoid saturation of
+downstream amplification stages.
+
+# Summary
+
+Having a circuit simulator that can be called directly from a high performance
+optimizer allows application-specific circuit designs which substantially out-perform
+more general-purpose circuits. This result isn't just theory; it plays out
+that way with measurements on a real-world circuit. Further, the differences
+aren't small. This circuit out-performs a conventional design by roughly 20dB
+and is easier to build due to being customized to exactly the parts already
+in stock. The required software is not complex, either. The setup of the 
+optimizer is about a dozen lines of code including the circuit definition
+and the parts inventory is about three dozen lines (your parts box is probably
+bigger than mine). The process doesn't take a high-performance computer, either.
+It takes about 20 seconds on a laptop to run the optimization. It's all 
+open source, too, so you can add code to implement special capabilities 
+that you need.
 
